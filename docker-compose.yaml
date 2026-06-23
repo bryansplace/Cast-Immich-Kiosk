@@ -1,0 +1,22 @@
+services:
+
+  # ── Flask Cast Controller (includes CATT) ────────────────────────────────────
+  #
+  # Prerequisites: a running Immich instance and a running Immich Kiosk instance
+  # (managed separately). See README.md for setup instructions.
+  #
+  # network_mode: host is required so CATT can discover and cast to Chromecast
+  # devices on the LAN. With host networking the app is reachable directly on
+  # port 7860 of the host; the `ports` directive has no effect in this mode.
+
+  kiosk-cast-controller:
+    build:
+      context: ./flaskapp
+      dockerfile: Dockerfile
+    container_name: kiosk-cast-controller
+    network_mode: host
+    env_file:
+      - ./flaskapp/data/.env
+    volumes:
+      - ./flaskapp/data:/app/data
+    restart: always

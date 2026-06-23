@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-semibold text-amber-200 mb-4">⚙ Settings</h1>
+
+<form method="POST" class="space-y-4">
+
+  <!-- ── Kiosk ── -->
+  <p class="text-xs text-zinc-500 uppercase tracking-widest">Kiosk</p>
+
+  <div>
+    <label class="text-xs text-zinc-400 block mb-1">Kiosk URL</label>
+    <input type="text" name="kiosk_url" value="{{ cfg.KIOSK_URL }}"
+           class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-sm focus:border-amber-500 focus:outline-none">
+  </div>
+
+  <!-- ── Cast Device ── -->
+  <p class="text-xs text-zinc-500 uppercase tracking-widest pt-2">Cast Device</p>
+
+  <div>
+    <label class="text-xs text-zinc-400 block mb-1">Device name</label>
+    <input type="text" id="castDeviceInput" name="cast_device" value="{{ cfg.CAST_DEVICE }}"
+           class="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-sm focus:border-amber-500 focus:outline-none mb-2">
+
+    <button type="button" id="scanBtn"
+            class="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-sm flex items-center justify-center gap-2">
+      <span id="scanIcon">🔄</span> Scan for devices
+    </button>
+
+    <div id="errorBox" class="text-red-400 text-xs mt-2 font-mono break-words hidden"></div>
+    <div id="deviceList" class="space-y-2 mt-2"></div>
+  </div>
+
+  <!-- ── Save ── -->
+  <button type="submit"
+          class="w-full bg-gradient-to-r from-amber-400 to-amber-700 text-zinc-950 font-bold rounded-xl p-4 mt-2">
+    Save
+  </button>
+
+</form>
+
+<a href="/" class="block bg-zinc-800 border border-zinc-700 text-zinc-300 text-center rounded-xl p-3 mt-4">← Back</a>
+
+<script>
+const scanBtn         = document.getElementById('scanBtn');
+const scanIcon        = document.getElementById('scanIcon');
+const deviceList      = document.getElementById('deviceList');
+const errorBox        = document.getElementById('errorBox');
+const castDeviceInput = document.getElementById('castDeviceInput');
+
+scanBtn.addEventListener('click', async () => {
+  scanIcon.textContent = '⏳';
+  scanBtn.disabled = true;
+  errorBox.classList.add('hidden');
+  deviceList.innerHTML = '';
+
+  try {
+    const res  = await fetch('/api/device/scan', { method: 'POST' });
+    const data = await res.json();
+
+    if (data.error) {
+      errorBox.textContent = '⚠ ' + data.error;
+      errorBox.classList.remove('hidden');
+    }
+
+    (data.devices || []).forEach(d => {
+      const label = document.createElement('label');
+      label.className = 'flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl p-3 cursor-pointer';
+      label.innerHTML = `
+        <input type="radio" name="_device_radio" value="${d}"
+               class="accent-amber-500 w-5 h-5"
+               ${d === castDeviceInput.value ? 'checked' : ''}>
+        <span class="text-sm">${d}</span>`;
+      // Selecting a radio updates the text input so it is included in the form POST.
+      label.querySelector('input').addEventListener('change', () => {
+        castDeviceInput.value = d;
+      });
+      deviceList.appendChild(label);
+    });
+  } catch {
+    errorBox.textContent = '⚠ Scan request failed.';
+    errorBox.classList.remove('hidden');
+  }
+
+  scanIcon.textContent = '🔄';
+  scanBtn.disabled = false;
+});
+</script>
+{% endblock %}

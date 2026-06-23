@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Immich-Kiosk-Cast{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-semibold text-amber-200 mb-1">🖥️ Immich-Kiosk-Cast</h1>
+<p class="text-sm text-zinc-500 mb-5">Casting to <span class="font-semibold text-zinc-300">{{ cfg.CAST_DEVICE }}</span></p>
+
+<!-- Top row: Start / Stop / Settings -->
+<div class="grid grid-cols-3 gap-2 mb-5">
+  <button id="startBtn"
+          class="bg-gradient-to-r from-amber-400 to-amber-700 text-zinc-950 font-bold rounded-xl py-3 text-sm tracking-wide">
+    ▶ Start
+  </button>
+  <button id="stopBtn"
+          class="bg-zinc-800 border border-zinc-700 text-zinc-300 font-semibold rounded-xl py-3 text-sm">
+    ⏹ Stop
+  </button>
+  <a href="/settings"
+     class="bg-zinc-800 border border-zinc-700 text-zinc-300 font-semibold rounded-xl py-3 text-sm flex items-center justify-center">
+    ⚙ Settings
+  </a>
+</div>
+
+<!-- URL input -->
+<div class="mb-3">
+  <label class="text-xs text-zinc-400 block mb-1">URL to cast</label>
+  <textarea id="urlInput" rows="5" spellcheck="false"
+            class="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-xs font-mono text-zinc-200 leading-relaxed resize-none focus:border-amber-500 focus:outline-none"
+            placeholder="Paste a Kiosk or any other URL here…">{{ last_selection }}</textarea>
+</div>
+
+<!-- Build new URL -->
+<button id="buildBtn"
+        class="w-full bg-zinc-800 border border-zinc-700 text-zinc-300 font-semibold rounded-xl p-3 text-sm mb-5">
+  🔗 Build new URL
+</button>
+
+<!-- Status line -->
+<div id="status" class="text-xs font-mono text-amber-300 text-center min-h-[1.5em]"></div>
+
+<script>
+const kioskUrl = {{ cfg.KIOSK_URL | tojson }};
+
+// ── Auto-paste when this tab regains focus ──────────────────────────────────
+//
+// When the user switches back from the Kiosk URL builder tab, the clipboard
+// is read automatically. If the content is a valid URL that differs from what
+// is currently in the textbox, it is pasted in. Nothing is saved to disk until
+// Start is pressed.
+//
+// The browser will prompt once for clipboard-read permission. On browsers that
+// do not support navigator.clipboard.readText() (notably Firefox without a
+// direct user gesture), the textbox remains fully editable for manual paste.
+
+async function tryAutoPaste() {
+  try {
+    const text = (await navigator.clipboard.readText()).trim();
+    if (!text) return;
+    new URL(text);                                   // throws if not a valid URL
+    const ta = document.getElementById('urlInput');
+    if (text !== ta.value.trim()) {
+      ta.value = text;
+    }
+  } catch {
+    // clipboard denied, invalid URL, or no change — ignore silently
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') tryAutoPaste();
+});
+window.addEventListener('focus', tryAutoPaste);
+
+// ── Build new URL ───────────────────────────────────────────────────────────
+document.getElementById('buildBtn').addEventListener('click', () => {
+  window.open(kioskUrl + '/url-builder', '_blank');
+});
+
+// ── Start ───────────────────────────────────────────────────────────────────
+document.getElementById('startBtn').addEventListener('click', async () => {
+  const url    = document.getElementById('urlInput').value.trim();
+  const status = document.getElementById('status');
+  if (!url) {
+    status.textContent = '⚠ No URL entered.';
+    return;
+  }
+  status.textContent = 'Casting…';
+  try {
+    const res  = await fetch('/api/cast', {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({ url }),
+    });
+    const data = await res.json();
+    status.textContent = data.message;
+  } catch {
+    status.textContent = '⚠ Request failed.';
+  }
+});
+
+// ── Stop ────────────────────────────────────────────────────────────────────
+document.getElementById('stopBtn').addEventListener('click', async () => {
+  const status = document.getElementById('status');
+  status.textContent = 'Stopping…';
+  try {
+    const res  = await fetch('/api/stop', { method: 'POST' });
+    const data = await res.json();
+    status.textContent = data.message;
+  } catch {
+    status.textContent = '⚠ Request failed.';
+  }
+});
+</script>
+{% endblock %}
