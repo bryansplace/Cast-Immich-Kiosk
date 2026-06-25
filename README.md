@@ -1,82 +1,207 @@
 # immich-kiosk-cast
 
-A Flask-based, mobile-friendly web UI for casting [Immich Kiosk](https://github.com/damongolding/immich-kiosk) slideshows — or any URL — to a Chromecast device using [CATT](https://github.com/skorokithakis/catt).
+A lightweight web app that lets you cast [Immich Kiosk](https://github.com/damongolding/immich-kiosk) slideshows — or in fact any URL — to a Chromecast device on your LAN, without needing HTTPS or a public DNS record.
 
-## Prerequisites
+## Background
 
-- A running [Immich](https://immich.app/) instance
-- A running [Immich Kiosk](https://github.com/damongolding/immich-kiosk) instance, with `enable_url_builder: true` set in its configuration
-- A Chromecast-compatible device on the same LAN
-- Docker and Docker Compose
+[Immich](https://immich.app/) is a self-hosted photo and video library. Its built-in Chromecast support requires a publicly accessible HTTPS instance with a DNS record, which is overkill for home use.
 
-This project does not manage or deploy Immich or Immich Kiosk. Both must be running independently before setup.
+This project uses [CATT (Cast All The Things)](https://github.com/skorokithakis/catt) to cast over the local LAN directly. Point your phone's browser at the web interface address, build and paste your Kiosk URL for what to display, and cast.
 
 ## How it works
 
-The app provides a single home screen:
+The app provides a home screen:
 
-- **Start** — casts the URL currently in the textbox to the configured Chromecast device and saves it for next time.
+- **Start** — casts the URL in the textbox to the configured Chromecast device and saves it for next time.
 - **Stop** — stops whatever is currently casting.
-- **Build new URL** — opens the Kiosk URL builder (`/url-builder`) in a new tab. Select people, albums, dates, transitions, and other options visually; copy the resulting URL. When the app tab is refocused, the URL is pasted into the textbox automatically.
-- **Settings** — configure the Kiosk URL and cast device.
+- **Settings** — configure the Kiosk URL and cast device name. Settings are saved to `config.env` on the host and persist across restarts and updates.
+- **URL to cast**
+Paste the URL to be cast into the textbox. Pasting http://<IMMICH KIOSK>:3000 would cast the default Immich Kiosk display. To be more selective, use the button below 
+- **Build new URL** — opens the Kiosk URL builder in a new tab. Select people, albums, transitions, and other options. At the bottom of the selection list, Kiosk builds a URL.  Copy it, go back to Home screen, and paste. 
 
-Any valid URL can be cast, not only Kiosk URLs.
+Note: Any valid URL can be cast, not just Kiosk URLs — YouTube, for example, should work too.  
 
-See [`docs/Setup_guide.md`](docs/Setup_guide.md) for background on CATT, the Kiosk URL builder, and Kiosk's `filter_date` vs `dates` parameter distinction.
 
-## Setup
 
-1. Create the data directory and copy the example config:
-   ```
-   mkdir -p flaskapp/data
-   cp .env.example flaskapp/data/.env
-   ```
+## Prerequisites
 
-2. Edit `flaskapp/data/.env` and set `KIOSK_URL` and `CAST_DEVICE`.
+- A running [Immich Kiosk](https://github.com/damongolding/immich-kiosk) instance, with `enable_url_builder: true` in its config.
+- A Chromecast-compatible device on the same LAN
+- Docker and Docker Compose
 
-3. Start the container:
-   ```
-   docker compose up -d --build
-   ```
+This project does not deploy or manage Immich or Immich Kiosk. Both must be running before you set this up.
 
-4. Open the UI at `http://<host>:7860`.
+---
 
-> **Note:** The container runs with `network_mode: host` so CATT can discover Chromecast devices on the LAN. The app is reachable directly on port `7860` of the host.
+## Setting up Immich Kiosk (if not already running)
 
-## Enabling the Kiosk URL builder
+If you don't have Immich Kiosk, the full installation instructions are at [docs.immichkiosk.app](https://docs.immichkiosk.app/installation/). 
 
-The Kiosk URL builder must be explicitly enabled in the Kiosk instance's own configuration. Add the following to the Kiosk `config.yaml`:
+It is a powerful program with many options. Below, I give a quick installation guide to get up and running using a standalone docker compose file.
+
+You will need an [Immich API key](https://api.immich.app/getting-started) for Kiosk to access Immich. You can allow all permissions or include only [those required](https://docs.immichkiosk.app/installation/#api-key-permissions)
+
+Make project folder to hold `docker-compose.yaml` and `config.yaml`
+
+```
+mkdir ./immich-kiosk
+cd ./immich-kiosk
+mkdir ./config
+```
+
+Create `docker-compose.yaml`:
+```
+services:
+  immich-kiosk:
+    image: ghcr.io/damongolding/immich-kiosk:latest
+    container_name: immich-kiosk
+    tty: true
+    environment:
+      TZ: "Europe/Paris"
+    ports:
+      - 3000:3000
+    volumes:
+      - ./config:/config
+    restart: always
+    healthcheck:
+      test: ["CMD", "/kiosk", "--healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+```
+
+
+Create `./config/config.yaml`
+
+
+The following is a suggestion to copy and paste to get started. 
+The only required items are:
+immich_api_key: "????"
+immich_url: ""http://192.168.X.XXX:2283"
+enable_url_builder: true
+
+Later, you can customise further ( Clock, texts, etc. ) using Immich Kiosk documentation.
+
+ 
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/damongolding/immich-kiosk/main/config.schema.json
+
+## Required
+immich_api_key: ""
+immich_url: ""
+
+## Kiosk behaviour
+duration: 60
+disable_screensaver: true
+optimize_images: true
+use_gpu: false
+
+## Asset sources
+show_archived: false
+
+## UI
+disable_ui: true
+background_blur: false
+layout: splitview
+
+## Transitions
+transition: cross-fade
+cross_fade_transition_duration: 1
+
+## Image display
+image_fit: none
+image_effect: none
+use_original_image: false
+
+## Video
+show_videos: false
+live_photos: false
+live_photo_loop_delay: 0
+show_animated_gifs: false
+
+## Fixed options (cannot be changed via URL params)
+kiosk:
+  port: 3000
+  behind_proxy: false
+  disable_url_queries: false
+  disable_config_endpoint: false
+  enable_url_builder: true   # IMPORTANT — required by immich-kiosk-cast
+  watch_config: false
+  fetched_assets_size: 1000
+  http_timeout: 20
+  password: ""
+  cache: true
+  prefetch: true
+  asset_weighting: true
+```
+
+Run `docker-compose up -d` and point browser to `<KIOSK HOST>:3000 to check it is working
+
+---
+
+## Setting up immich-kiosk-cast
+
+### 1. Create the compose file
+
+Create a directory and save the following as `docker-compose.yaml`:
 
 ```yaml
-kiosk:
-  enable_url_builder: true
+services:
+  immich-kiosk-cast:
+    image: ghcr.io/bryansplace/immich-kiosk-cast:latest
+    container_name: immich-kiosk-cast
+    network_mode: host
+    volumes:
+      - ./config.env:/app/data/.env
+    restart: unless-stopped
 ```
 
-Or set the environment variable in the Kiosk container:
+> **Note:** The container has to run with `network_mode: host` so CATT can discover Chromecast devices on the LAN.
+
+### 2. Create an empty config file
+
+```sh
+touch config.env
+```
+
+The app will write to this file as you configure it via the Settings page. No pre-configuration is needed.
+
+### 3. Start the container
+
+```sh
+docker compose up -d
+```
+
+### 4. Open the UI
 
 ```
-KIOSK_ENABLE_URL_BUILDER=true
+http://<host-ip>:7860
 ```
 
-Once enabled, the URL builder is available at `http://<kiosk-host>:3000/url-builder`.
+Go to **Settings** and enter your Kiosk URL and Chromecast device name. To find your device name, tap 'Scan for devices'
 
-## Project structure
+Go back to home screen and tap **Start**, the default Kiosk display (probably everything) should be cast to the device.
 
-```
-immich-kiosk-cast/
-├── docker-compose.yaml
-├── .env.example
-├── .gitignore
-├── README.md
-├── docs/
-│   └── Setup_guide.md
-└── flaskapp/
-    ├── Dockerfile
-    ├── app.py
-    ├── templates/
-    │   ├── base.html
-    │   ├── home.html
-    │   └── settings.html
-    └── data/                 (tracked empty via .gitkeep; .env is gitignored)
-        └── .gitkeep
-```
+To create a URL which displays what you want, tap 'Build new URL'.
+This takes you to the Immich Kiosk URL builder where you are given lots of choices ( eg Album) to create a URL that Kiosk uses to create the display.
+
+
+Have fun.....
+
+
+## Compatibility
+
+This project was developed and tested against:
+
+| Component | Version |
+|---|---|
+| Immich | v2.7.3 |
+| Immich Kiosk | v0.38.1 |
+| CATT | 0.13.1 |
+| Flask | 3.1.3 |
+
+Both Immich and Immich Kiosk are under active development. If a future release breaks something, check their respective changelogs for API or configuration changes.
+
+
+
