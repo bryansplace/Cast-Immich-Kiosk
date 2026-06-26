@@ -1,5 +1,7 @@
 # Runtime config (contains real URLs and device names)
 flaskapp/data/.env
+config.env
+
 
 # Python
 __pycache__/
