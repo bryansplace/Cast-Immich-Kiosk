@@ -1,6 +1,6 @@
 # immich-kiosk-cast
 
-A lightweight web app that lets you cast [Immich Kiosk](https://github.com/damongolding/immich-kiosk) slideshows — or in fact any URL — to a Chromecast device on your LAN, without needing HTTPS or a public DNS record.
+Use your phone browser to locally cast [Immich Kiosk](https://github.com/damongolding/immich-kiosk) Immich Kiosk — or in fact any URL — to a Chromecast device on your LAN, without needing HTTPS or a public DNS record.
 
 ## Background
 
@@ -26,24 +26,23 @@ Note: Any valid URL can be cast, not just Kiosk URLs — YouTube, for example, s
 - A Chromecast-compatible device on the same LAN.
 - Docker and Docker Compose.
 
-This project does not deploy or manage Immich or Immich Kiosk. Both must be running before you set this up.
-
 ---
 
-## Setting up Immich Kiosk (if not already running)
+## Setting up Immich Kiosk (if not already installed)
 
-If you don't have Immich Kiosk, the full installation instructions are at [docs.immichkiosk.app](https://docs.immichkiosk.app/installation/).
+If you have Immich Kiosk, skip this section.
 
-It is a powerful program with many options. Below is a quick installation guide to get up and running using a standalone Docker Compose file.
+Kiosk is a powerful program with many installation options. Below is a  installation guide to quickly get up and running using a standalone Docker-Compose file.
 
-You will need an [Immich API key](https://immich.app/docs/features/api-keys) for Kiosk to access Immich. You can allow all permissions or include only [those required](https://docs.immichkiosk.app/installation/#api-key-permissions).
+The full installation instructions are at [docs.immichkiosk.app](https://docs.immichkiosk.app/installation/) which can be used to customise the display (eg, display clock, dates etc.)
 
-Make a project folder to hold `docker-compose.yaml` and `config.yaml`:
+An [Immich API key](https://immich.app/docs/features/api-keys) is needed for Kiosk to access Immich. You can allow all permissions or include only [those required](https://docs.immichkiosk.app/installation/#api-key-permissions).
+
+Make a project folder to hold `docker-compose.yaml`:
 
 ```
 mkdir ./immich-kiosk
 cd ./immich-kiosk
-mkdir ./config
 ```
 
 Create `docker-compose.yaml`:
@@ -53,13 +52,12 @@ services:
   immich-kiosk:
     image: ghcr.io/damongolding/immich-kiosk:latest
     container_name: immich-kiosk
-    tty: true
     environment:
-      TZ: "Europe/Paris"
+      KIOSK_IMMICH_API_KEY: "xxxxxxxxxxxxxxxxxxxxxxx"
+      KIOSK_IMMICH_URL: "http://192.168.1.XXX:2283"
+      KIOSK_ENABLE_URL_BUILDER: true
     ports:
       - 3000:3000
-    volumes:
-      - ./config:/config
     restart: always
     healthcheck:
       test: ["CMD", "/kiosk", "--healthcheck"]
@@ -69,61 +67,7 @@ services:
       start_period: 10s
 ```
 
-Create `./config/config.yaml`. The only required items are `immich_api_key`, `immich_url`, and `enable_url_builder: true`. The rest below are suggested defaults to get started; customise further using the [Immich Kiosk documentation](https://docs.immichkiosk.app).
-
-```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/damongolding/immich-kiosk/main/config.schema.json
-
-## Required
-immich_api_key: ""
-immich_url: ""
-
-## Kiosk behaviour
-duration: 60
-disable_screensaver: true
-optimize_images: true
-use_gpu: false
-
-## Asset sources
-show_archived: false
-
-## UI
-disable_ui: true
-background_blur: false
-layout: splitview
-
-## Transitions
-transition: cross-fade
-cross_fade_transition_duration: 1
-
-## Image display
-image_fit: none
-image_effect: none
-use_original_image: false
-
-## Video
-show_videos: false
-live_photos: false
-live_photo_loop_delay: 0
-show_animated_gifs: false
-
-## Fixed options (cannot be changed via URL params)
-kiosk:
-  port: 3000
-  behind_proxy: false
-  disable_url_queries: false
-  disable_config_endpoint: false
-  enable_url_builder: true   # IMPORTANT — required by immich-kiosk-cast
-  watch_config: false
-  fetched_assets_size: 1000
-  http_timeout: 20
-  password: ""
-  cache: true
-  prefetch: true
-  asset_weighting: true
-```
-
-Run `docker compose up -d` and point a browser at `http://<host-ip>:3000` to confirm it is working.
+Run `docker compose up -d` and point your browser to `http://<host-ip>:3000` to confirm it is working.
 
 ---
 
